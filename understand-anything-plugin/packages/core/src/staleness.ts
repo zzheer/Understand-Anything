@@ -359,18 +359,53 @@ function parseChangedFiles(output: string): string[] {
 }
 
 /**
+ * Shape of a hex object id as persisted in `meta.json` (`gitCommitHash`).
+ * `meta.json` lives inside the analyzed repository, so its contents are
+ * repo-controlled data — anything that is not a plain hex hash must never
+ * reach the git command line, where it could be parsed as an option.
+ */
+const COMMIT_HASH_PATTERN = /^[0-9a-f]{7,40}$/;
+
+function isValidCommitHash(value: string): boolean {
+  return COMMIT_HASH_PATTERN.test(value);
+}
+
+/**
  * Get the list of files that changed between a given commit and HEAD.
- * Returns an empty array if there are no changes or if git encounters an error.
+ * Returns an empty array if there are no changes, if the supplied hash is not
+ * a plain hex object id, if it does not resolve to a commit in this
+ * repository, or if git encounters an error.
  */
 export function getChangedFiles(
   projectDir: string,
   lastCommitHash: string,
 ): string[] {
+  // Reject anything that does not look like a hex object id before it can
+  // reach git. A repo-controlled meta.json could otherwise smuggle an
+  // option such as `--output=...` into the argument list.
+  if (!isValidCommitHash(lastCommitHash)) return [];
+
   try {
-    const output = execFileSync("git", ["diff", `${lastCommitHash}..HEAD`, "--name-only"], {
-      cwd: projectDir,
-      encoding: "utf-8",
-    });
+    // Confirm the hash names a commit object in this repository before
+    // using it in a range. `--end-of-options` guarantees git treats the
+    // revision as an operand even if a future bypass of the regex occurs.
+    execFileSync(
+      "git",
+      ["rev-parse", "--verify", "--end-of-options", `${lastCommitHash}^{commit}`],
+      {
+        cwd: projectDir,
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    );
+    const output = execFileSync(
+      "git",
+      ["diff", "--name-only", "--end-of-options", `${lastCommitHash}..HEAD`],
+      {
+        cwd: projectDir,
+        encoding: "utf-8",
+      },
+    );
     return parseChangedFiles(output);
   } catch {
     return [];
