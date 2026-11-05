@@ -64,9 +64,31 @@ describe('skill command hardening', () => {
     expect(content).toMatch(/: "\$\{DASHBOARD_DIR:\?Run step 5 first so DASHBOARD_DIR is set\}"/);
     expect(content).toMatch(/cd "\$PLUGIN_ROOT" && pnpm --filter @understand-anything\/core build/);
     expect(content).toMatch(/cd "\$DASHBOARD_DIR" && GRAPH_DIR="\$PROJECT_DIR" npx vite/);
-    // Fast path: the viewer URL is version-pinned and both npx arguments are quoted.
-    expect(content).toMatch(/VIEWER_URL="https:\/\/github\.com\/Egonex-AI\/Understand-Anything\/releases\/download\/v\$\{PLUGIN_VERSION\}\/understand-anything-viewer\.tgz"/);
-    expect(content).toMatch(/npx --yes "\$VIEWER_URL" "\$PROJECT_DIR"/);
+    // Fast path: the viewer is built from the local checkout and run with
+    // node. The skill must never fetch and execute code from a URL.
+    expect(content).toMatch(/node "\$VIEWER_DIR\/bin\/viewer\.mjs" "\$PROJECT_DIR"/);
+    expect(content).toMatch(/pnpm --filter understand-anything-viewer build/);
+    expect(content).not.toMatch(/npx\s+(?:--yes|-y)\s+"?https?:/);
+    expect(content).not.toMatch(/npx\s+(?:--yes|-y)\s+"\$VIEWER_URL"/);
+    expect(content).not.toMatch(/releases\/download/);
+    expect(content).not.toMatch(/curl[^\n]*\|\s*(?:sh|bash)/);
+  });
+
+  it('never runs an unlocked pnpm install in any skill', () => {
+    const files = [
+      'understand-anything-plugin/skills/understand/SKILL.md',
+      'understand-anything-plugin/skills/understand-dashboard/SKILL.md',
+      'understand-anything-plugin/skills/understand-figma/SKILL.md',
+    ];
+    for (const relPath of files) {
+      const content = readRepoFile(relPath);
+      expect(content, `${relPath} must not fall back to an unlocked install`).not.toMatch(
+        /\|\|\s*pnpm install\b/,
+      );
+      expect(content, `${relPath} must pin installs to the lockfile`).toMatch(
+        /pnpm install --frozen-lockfile/,
+      );
+    }
   });
 
   it('marks project-controlled context as untrusted data', () => {
