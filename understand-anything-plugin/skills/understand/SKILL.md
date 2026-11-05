@@ -12,7 +12,7 @@ Analyze the current codebase and produce a `knowledge-graph.json` file in the pr
 
 - `$ARGUMENTS` may contain:
   - `--full` — Force a full rebuild, ignoring any existing graph
-  - `--auto-update` — Enable automatic graph updates on commit (writes `autoUpdate: true` to `$UA_DIR/config.json`)
+  - `--auto-update` — Enable stale-graph reminders after commits (writes `autoUpdate: true` to `$UA_DIR/config.json`). Because `$UA_DIR/config.json` is committed with the repository, the hooks only act on it when the user has also opted in at user level with `{"autoUpdate": true}` in `~/.understand-anything/config.json`; even then they only ask the user before updating.
   - `--no-auto-update` — Disable automatic graph updates (writes `autoUpdate: false` to `$UA_DIR/config.json`)
   - `--review` — Run full LLM graph-reviewer instead of inline deterministic validation
   - `--language <lang>` — Generate all textual content (summaries, descriptions, tags, titles, languageNotes, languageLesson) in the specified language. Accepts ISO 639-1 codes (`zh`, `ja`, `ko`, `en`, `es`, `fr`, `de`, etc.) or friendly names (`chinese`, `japanese`, `korean`, `english`, `spanish`, etc.). Locale variants supported: `zh-TW`, `zh-HK`, etc. Defaults to `en` (English). Stores preference in `$UA_DIR/config.json` for consistency across incremental updates.
@@ -145,7 +145,8 @@ Determine whether to run a full analysis or incremental update.
 3.5. **Auto-update configuration:**
     - If `--auto-update` is in `$ARGUMENTS`: write `{"autoUpdate": true}` to `$UA_DIR/config.json`
     - If `--no-auto-update` is in `$ARGUMENTS`: write `{"autoUpdate": false}` to `$UA_DIR/config.json`
-    - These flags only set the config — analysis proceeds normally regardless.
+    - These flags only set the project config — analysis proceeds normally regardless.
+    - When `--auto-update` is set, tell the user that the commit hooks also require `{"autoUpdate": true}` in `~/.understand-anything/config.json` (their own, non-repo file) and that the hooks will ask before updating. Do not create or edit that user-level file yourself.
 
  3.6. **Language configuration:**
     - Parse `$ARGUMENTS` for `--language <lang>` flag. If found, extract the language code.

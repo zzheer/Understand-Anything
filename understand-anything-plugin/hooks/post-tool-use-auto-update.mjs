@@ -1,4 +1,17 @@
+// PostToolUse hook: after a graph-changing git command, remind the agent
+// that the knowledge graph may be stale.
+//
+// The reminder is advisory. It is only emitted when BOTH the user-level
+// config (~/.understand-anything/config.json) and the project-level config
+// (<project>/.ua/config.json or .understand-anything/config.json) opt in
+// with `"autoUpdate": true`. The project config is repo-controlled data —
+// anyone who can commit to the repository can set it — so it must never be
+// sufficient on its own to steer the agent into running the update
+// pipeline. The user-level file is the human's own opt-in.
+
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 const COMMIT_COMMAND = /git\s+(commit|merge|cherry-pick|rebase)/;
 
@@ -6,13 +19,24 @@ function findDataDir() {
   return existsSync('.understand-anything') ? '.understand-anything' : '.ua';
 }
 
-function autoUpdateEnabled(dataDir) {
+function readAutoUpdateFlag(configPath) {
   try {
-    const config = JSON.parse(readFileSync(`${dataDir}/config.json`, 'utf8'));
-    return config.autoUpdate === true;
+    const config = JSON.parse(readFileSync(configPath, 'utf8'));
+    return config !== null && typeof config === 'object' && config.autoUpdate === true;
   } catch {
     return false;
   }
+}
+
+function userConfigPath() {
+  return join(homedir(), '.understand-anything', 'config.json');
+}
+
+function autoUpdateEnabled(dataDir) {
+  return (
+    readAutoUpdateFlag(userConfigPath()) &&
+    readAutoUpdateFlag(`${dataDir}/config.json`)
+  );
 }
 
 async function readStdin() {
@@ -39,10 +63,11 @@ async function main() {
 
   const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT ?? '';
   const additionalContext =
-    `[understand-anything] Commit detected with auto-update enabled. ` +
-    `You MUST read the file at ${pluginRoot}/hooks/auto-update-prompt.md ` +
-    'and execute its instructions to incrementally update the knowledge graph. ' +
-    'Do not ask the user for confirmation — just do it.';
+    `[understand-anything] Commit detected and auto-update is enabled in both ` +
+    `the user and project config, so the knowledge graph may now be stale. ` +
+    `Ask the user whether they want to update it (re-running /understand performs ` +
+    `an incremental update). Only if the user agrees, follow the procedure in ` +
+    `${pluginRoot}/hooks/auto-update-prompt.md. Do not start the update on your own.`;
 
   process.stdout.write(
     JSON.stringify({
