@@ -115,11 +115,13 @@ Determine whether to run a full analysis or incremental update.
    fi
 
    if [ ! -f "$PLUGIN_ROOT/packages/core/dist/index.js" ]; then
-     cd "$PLUGIN_ROOT" && (pnpm install --frozen-lockfile 2>/dev/null || pnpm install) && pnpm --filter @understand-anything/core build
+     cd "$PLUGIN_ROOT" && pnpm install --frozen-lockfile && pnpm --filter @understand-anything/core build
    fi
    ```
 
    If `pnpm` is missing, report to the user: "Install Node.js ≥ 22 and pnpm ≥ 10, then re-run `/understand`."
+
+   If `pnpm install --frozen-lockfile` fails, **STOP** and report the error to the user. Never retry without `--frozen-lockfile`: an unlocked install resolves dependencies afresh and can pull in packages that were not reviewed with the pinned `pnpm-lock.yaml`. The lockfile is the supply-chain boundary for this plugin; a mismatch means the plugin checkout is inconsistent and needs a human to fix it (usually by reinstalling the plugin).
 
 1.7. **Resolve the data directory `$UA_DIR`.** All Understand-Anything artifacts live in the project's data directory. Resolve it once, now that `$PROJECT_ROOT` is known, and reuse `$UA_DIR` for every read and write in later phases:
    ```bash

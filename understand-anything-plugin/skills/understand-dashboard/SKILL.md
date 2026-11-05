@@ -116,8 +116,9 @@ Start the Understand Anything dashboard to visualize the knowledge graph for the
    ```bash
    : "${PLUGIN_ROOT:?Run step 3 first so PLUGIN_ROOT is set}"
    DASHBOARD_DIR="${DASHBOARD_DIR:-$PLUGIN_ROOT/packages/dashboard}"
-   cd "$DASHBOARD_DIR" && (pnpm install --frozen-lockfile 2>/dev/null || pnpm install)
+   cd "$DASHBOARD_DIR" && pnpm install --frozen-lockfile
    ```
+   If `pnpm install --frozen-lockfile` fails, **STOP** and report the error to the user. Never retry without `--frozen-lockfile` — an unlocked install can pull in dependencies that were not reviewed with the pinned `pnpm-lock.yaml`.
    Then ensure the core package is built (the dashboard depends on it):
    ```bash
    : "${PLUGIN_ROOT:?Run step 3 first so PLUGIN_ROOT is set}"
