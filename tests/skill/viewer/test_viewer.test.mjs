@@ -3,7 +3,7 @@
 // gate, graph sanitisation, file-content allowlist, and .ua/legacy resolution.
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +31,12 @@ function fixtureGraph(gitCommitHash) {
         id: "file:src/a.ts", type: "file", name: "a.ts", filePath: "src/a.ts",
         summary: "s", tags: [], complexity: "simple",
       },
+      // Listed in the graph, but on disk it is a symlink pointing outside the
+      // project (see setupProject). The server must still refuse to serve it.
+      {
+        id: "file:src/link.ts", type: "file", name: "link.ts", filePath: "src/link.ts",
+        summary: "s", tags: [], complexity: "simple",
+      },
     ],
     edges: [],
     layers: [],
@@ -45,11 +51,22 @@ function git(projectRoot, ...args) {
   }).trim();
 }
 
+const SUPPORTS_SYMLINKS = process.platform !== "win32";
+// Directories created outside the fixture project roots; removed in afterAll.
+const OUTSIDE_DIRS = [];
+
 function setupProject(dataDirName) {
   const root = mkdtempSync(join(tmpdir(), "ua-viewer-"));
   mkdirSync(join(root, "src"), { recursive: true });
   writeFileSync(join(root, "src", "a.ts"), "export const a = 1;\n");
   writeFileSync(join(root, "secret.txt"), "not in graph\n");
+  // A file outside the project, reachable through a symlink inside it.
+  const outside = mkdtempSync(join(tmpdir(), "ua-viewer-outside-"));
+  OUTSIDE_DIRS.push(outside);
+  writeFileSync(join(outside, "outside.ts"), "export const leaked = true;\n");
+  if (SUPPORTS_SYMLINKS) {
+    symlinkSync(join(outside, "outside.ts"), join(root, "src", "link.ts"));
+  }
   git(root, "init");
   git(root, "config", "user.email", "viewer-tests@example.com");
   git(root, "config", "user.name", "Viewer Tests");
@@ -107,6 +124,7 @@ describe.skipIf(!existsSync(VIEWER_DIST))("understand-anything-viewer", () => {
   afterAll(() => {
     viewer?.proc.kill();
     if (root) rmSync(root, { recursive: true, force: true });
+    for (const dir of OUTSIDE_DIRS.splice(0)) rmSync(dir, { recursive: true, force: true });
   });
 
   const base = () => `http://127.0.0.1:${viewer.port}`;
@@ -126,7 +144,7 @@ describe.skipIf(!existsSync(VIEWER_DIST))("understand-anything-viewer", () => {
     const res = await fetch(`${base()}/knowledge-graph.json?token=${viewer.token}`);
     expect(res.status).toBe(200);
     const graph = await res.json();
-    expect(graph.nodes).toHaveLength(1);
+    expect(graph.nodes).toHaveLength(2);
     expect(graph.nodes[0].filePath).toBe("src/a.ts");
   });
 
@@ -173,6 +191,19 @@ describe.skipIf(!existsSync(VIEWER_DIST))("understand-anything-viewer", () => {
     expect(res.status).toBe(400);
   });
 
+  it.skipIf(!SUPPORTS_SYMLINKS)(
+    "refuses a graph-listed symlink that resolves outside the project",
+    async () => {
+      const res = await fetch(
+        `${base()}/file-content.json?token=${viewer.token}&path=${encodeURIComponent("src/link.ts")}`,
+      );
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.content).toBeUndefined();
+      expect(body.error).toMatch(/inside the project/);
+    },
+  );
+
   it("blocks static requests escaping dist/", async () => {
     const res = await fetch(`${base()}/%2e%2e/package.json`);
     expect([403, 404]).toContain(res.status);
@@ -186,7 +217,7 @@ describe.skipIf(!existsSync(VIEWER_DIST))("understand-anything-viewer", () => {
         `http://127.0.0.1:${legacyViewer.port}/knowledge-graph.json?token=${legacyViewer.token}`,
       );
       expect(res.status).toBe(200);
-      expect((await res.json()).nodes).toHaveLength(1);
+      expect((await res.json()).nodes).toHaveLength(2);
     } finally {
       legacyViewer.proc.kill();
       rmSync(legacyRoot, { recursive: true, force: true });
