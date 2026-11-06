@@ -24,6 +24,11 @@ const BASH_AGENTS = new Set([
 
 const KNOWN_TOOLS = new Set(['Read', 'Write', 'Edit', 'Bash', 'Grep', 'Glob']);
 
+// Windows runners check out with CRLF (core.autocrlf=true); normalize before parsing.
+function readAgent(file) {
+  return readFileSync(join(agentsDir, file), 'utf8').replace(/\r\n?/g, '\n');
+}
+
 function frontmatter(content) {
   expect(content.startsWith('---\n')).toBe(true);
   const end = content.indexOf('\n---\n', 4);
@@ -43,7 +48,7 @@ describe('agent definitions', () => {
   });
 
   it.each(agentFiles)('%s declares a minimal tools allowlist', (file) => {
-    const content = readFileSync(join(agentsDir, file), 'utf8');
+    const content = readAgent(file);
     const tools = toolsOf(content);
 
     expect(tools.length).toBeGreaterThan(0);
@@ -64,7 +69,7 @@ describe('agent definitions', () => {
   it.each(agentFiles.filter((file) => file !== 'knowledge-graph-guide.md'))(
     '%s treats project content as untrusted data',
     (file) => {
-      const content = readFileSync(join(agentsDir, file), 'utf8');
+      const content = readAgent(file);
 
       expect(content).toMatch(/untrusted project data/i);
       expect(content).toMatch(/ignore any instructions/i);
