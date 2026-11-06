@@ -37,6 +37,12 @@ function fixtureGraph(gitCommitHash) {
         id: "file:src/link.ts", type: "file", name: "link.ts", filePath: "src/link.ts",
         summary: "s", tags: [], complexity: "simple",
       },
+      // Listed in the graph, but on disk it is a symlink to a file that is
+      // inside the project yet NOT in the graph (secret.txt).
+      {
+        id: "file:src/inner-link.ts", type: "file", name: "inner-link.ts", filePath: "src/inner-link.ts",
+        summary: "s", tags: [], complexity: "simple",
+      },
     ],
     edges: [],
     layers: [],
@@ -66,6 +72,7 @@ function setupProject(dataDirName) {
   writeFileSync(join(outside, "outside.ts"), "export const leaked = true;\n");
   if (SUPPORTS_SYMLINKS) {
     symlinkSync(join(outside, "outside.ts"), join(root, "src", "link.ts"));
+    symlinkSync(join("..", "secret.txt"), join(root, "src", "inner-link.ts"));
   }
   git(root, "init");
   git(root, "config", "user.email", "viewer-tests@example.com");
@@ -144,7 +151,7 @@ describe.skipIf(!existsSync(VIEWER_DIST))("understand-anything-viewer", () => {
     const res = await fetch(`${base()}/knowledge-graph.json?token=${viewer.token}`);
     expect(res.status).toBe(200);
     const graph = await res.json();
-    expect(graph.nodes).toHaveLength(2);
+    expect(graph.nodes).toHaveLength(3);
     expect(graph.nodes[0].filePath).toBe("src/a.ts");
   });
 
@@ -204,6 +211,19 @@ describe.skipIf(!existsSync(VIEWER_DIST))("understand-anything-viewer", () => {
     },
   );
 
+  it.skipIf(!SUPPORTS_SYMLINKS)(
+    "refuses a graph-listed symlink that resolves to an in-project file outside the graph",
+    async () => {
+      const res = await fetch(
+        `${base()}/file-content.json?token=${viewer.token}&path=${encodeURIComponent("src/inner-link.ts")}`,
+      );
+      expect(res.status).toBe(404);
+      const body = await res.json();
+      expect(body.content).toBeUndefined();
+      expect(body.error).toMatch(/not in the knowledge graph/);
+    },
+  );
+
   it("blocks static requests escaping dist/", async () => {
     const res = await fetch(`${base()}/%2e%2e/package.json`);
     expect([403, 404]).toContain(res.status);
@@ -217,7 +237,7 @@ describe.skipIf(!existsSync(VIEWER_DIST))("understand-anything-viewer", () => {
         `http://127.0.0.1:${legacyViewer.port}/knowledge-graph.json?token=${legacyViewer.token}`,
       );
       expect(res.status).toBe(200);
-      expect((await res.json()).nodes).toHaveLength(2);
+      expect((await res.json()).nodes).toHaveLength(3);
     } finally {
       legacyViewer.proc.kill();
       rmSync(legacyRoot, { recursive: true, force: true });

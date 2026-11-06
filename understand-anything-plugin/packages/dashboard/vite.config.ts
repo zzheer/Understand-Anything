@@ -173,6 +173,13 @@ function readSourceFile(url: URL) {
   if (!realFile.startsWith(realRoot + path.sep)) {
     return rejectFileRequest("Path must stay inside the project");
   }
+  // A symlink can also point at another file *inside* the project that is
+  // not in the graph (e.g. `src/notes.ts -> ../.env`), so the resolved
+  // location must be allowlisted too, not only the requested one.
+  const realRelativePath = path.relative(realRoot, realFile).split(path.sep).join("/");
+  if (!graphFilePathSet(graphFile, projectRoot).has(realRelativePath)) {
+    return rejectFileRequest("File is not in the knowledge graph", 404);
+  }
 
   let stat: fs.Stats;
   try {

@@ -299,7 +299,7 @@ git add .gitattributes .ua/
 
 ### View the dashboard without Claude Code
 
-Once a graph has been generated and committed, anyone on the team can open it — no Claude Code, no LLM, no API key. Only Node.js (>= 18) and pnpm are required. Build the standalone viewer from a checkout of this repository and run it with `node`; nothing is downloaded at run time:
+Once a graph has been generated and committed, anyone on the team can open it — no Claude Code, no LLM, no API key. Building the standalone viewer from a checkout of this repository needs Node.js >= 22 and pnpm >= 10 (it builds core and the dashboard); the built viewer itself runs on Node.js >= 18. Run it with `node`; nothing is downloaded at run time:
 
 ```bash
 pnpm install --frozen-lockfile
