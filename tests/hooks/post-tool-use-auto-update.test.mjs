@@ -110,9 +110,10 @@ function runSessionStart({
   createUserConfig = true,
   staleGraph = true,
   userAutoUpdate = true,
+  userConfigContents,
 } = {}) {
   const projectRoot = mkdtempSync(join(tmpdir(), 'ua-session-start-'));
-  const home = makeHome({ userAutoUpdate, createUserConfig });
+  const home = makeHome({ userAutoUpdate, createUserConfig, userConfigContents });
   const git = (...args) =>
     execFileSync('git', args, { cwd: projectRoot, encoding: 'utf8' }).trim();
   git('init', '-q');
@@ -319,6 +320,9 @@ describe('SessionStart stale-graph hook', () => {
     for (const options of [
       { createUserConfig: false },
       { userAutoUpdate: false },
+      { userConfigContents: '{not-json' },
+      // Only a top-level `autoUpdate: true` counts; nested keys must not.
+      { userConfigContents: JSON.stringify({ autoUpdate: false, other: { autoUpdate: true } }) },
       { autoUpdate: false },
       { staleGraph: false },
     ]) {

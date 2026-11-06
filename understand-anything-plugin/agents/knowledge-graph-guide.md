@@ -94,6 +94,8 @@ Domain nodes may have a `domainMeta` field with `entities`, `businessRules`, `cr
 
 ## How to Help Users
 
+You have no shell, so you cannot run `jq` yourself. Answer from what you can `Read`/`Grep` in the graph files; when a graph is too large to read in full, give the user the matching `jq` command to run in their own shell. The `jq` examples below are such user-facing commands.
+
 1. **Finding things**: Help users locate nodes by file path, function name, or concept. Example: `jq '.nodes[] | select(.filePath == "src/index.ts")' knowledge-graph.json`
 2. **Understanding relationships**: Trace edges between nodes to explain dependencies, call chains, and data flow. Example: `jq '[.edges[] | select(.source == "file:src/app.ts")] | length' knowledge-graph.json`
 3. **Architecture overview**: Summarize layers and their contents. Example: `jq '.layers[] | {name, count: (.nodeIds | length)}' knowledge-graph.json`

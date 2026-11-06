@@ -299,11 +299,15 @@ git add .gitattributes .ua/
 
 ### View the dashboard without Claude Code
 
-Once a graph has been generated and committed, anyone on the team can open it with one command — no Claude Code, no LLM, no API key. Only Node.js (>= 18) is required:
+Once a graph has been generated and committed, anyone on the team can open it — no Claude Code, no LLM, no API key. Only Node.js (>= 18) and pnpm are required. Build the standalone viewer from a checkout of this repository and run it with `node`; nothing is downloaded at run time:
 
 ```bash
-npx https://github.com/Egonex-AI/Understand-Anything/releases/latest/download/understand-anything-viewer.tgz /path/to/analyzed/project
+pnpm install --frozen-lockfile
+pnpm --filter understand-anything-viewer build
+node understand-anything-plugin/packages/viewer/bin/viewer.mjs /path/to/analyzed/project
 ```
+
+A prebuilt tarball is also attached to each GitHub release for people who prefer `npx <release-url>`; treat that as executing unreviewed code from the network and verify the asset (e.g. compare its SHA-256 with the one published on the release page) before running it.
 
 The terminal prints a tokenized URL (`http://127.0.0.1:5173/?token=…`) and opens the full interactive dashboard in your browser. The project directory (default: current directory) must contain the committed data directory (`.ua/`, or legacy `.understand-anything/`). Everything is served read-only from local disk — no LLM calls, no data leaves your machine.
 
