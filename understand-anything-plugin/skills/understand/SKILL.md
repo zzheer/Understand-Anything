@@ -12,7 +12,7 @@ Analyze the current codebase and produce a `knowledge-graph.json` file in the pr
 
 - `$ARGUMENTS` may contain:
   - `--full` — Force a full rebuild, ignoring any existing graph
-  - `--auto-update` — Enable automatic graph updates on commit (writes `autoUpdate: true` to `$UA_DIR/config.json`)
+  - `--auto-update` — Enable stale-graph reminders after commits (writes `autoUpdate: true` to `$UA_DIR/config.json`). Because `$UA_DIR/config.json` is committed with the repository, the hooks only act on it when the user has also opted in at user level with `{"autoUpdate": true}` in `~/.understand-anything/config.json`; even then they only ask the user before updating.
   - `--no-auto-update` — Disable automatic graph updates (writes `autoUpdate: false` to `$UA_DIR/config.json`)
   - `--review` — Run full LLM graph-reviewer instead of inline deterministic validation
   - `--language <lang>` — Generate all textual content (summaries, descriptions, tags, titles, languageNotes, languageLesson) in the specified language. Accepts ISO 639-1 codes (`zh`, `ja`, `ko`, `en`, `es`, `fr`, `de`, etc.) or friendly names (`chinese`, `japanese`, `korean`, `english`, `spanish`, etc.). Locale variants supported: `zh-TW`, `zh-HK`, etc. Defaults to `en` (English). Stores preference in `$UA_DIR/config.json` for consistency across incremental updates.
@@ -115,11 +115,13 @@ Determine whether to run a full analysis or incremental update.
    fi
 
    if [ ! -f "$PLUGIN_ROOT/packages/core/dist/index.js" ]; then
-     cd "$PLUGIN_ROOT" && (pnpm install --frozen-lockfile 2>/dev/null || pnpm install) && pnpm --filter @understand-anything/core build
+     cd "$PLUGIN_ROOT" && pnpm install --frozen-lockfile && pnpm --filter @understand-anything/core build
    fi
    ```
 
    If `pnpm` is missing, report to the user: "Install Node.js ≥ 22 and pnpm ≥ 10, then re-run `/understand`."
+
+   If `pnpm install --frozen-lockfile` fails, **STOP** and report the error to the user. Never retry without `--frozen-lockfile`: an unlocked install resolves dependencies afresh and can pull in packages that were not reviewed with the pinned `pnpm-lock.yaml`. The lockfile is the supply-chain boundary for this plugin; a mismatch means the plugin checkout is inconsistent and needs a human to fix it (usually by reinstalling the plugin).
 
 1.7. **Resolve the data directory `$UA_DIR`.** All Understand-Anything artifacts live in the project's data directory. Resolve it once, now that `$PROJECT_ROOT` is known, and reuse `$UA_DIR` for every read and write in later phases:
    ```bash
@@ -143,7 +145,8 @@ Determine whether to run a full analysis or incremental update.
 3.5. **Auto-update configuration:**
     - If `--auto-update` is in `$ARGUMENTS`: write `{"autoUpdate": true}` to `$UA_DIR/config.json`
     - If `--no-auto-update` is in `$ARGUMENTS`: write `{"autoUpdate": false}` to `$UA_DIR/config.json`
-    - These flags only set the config — analysis proceeds normally regardless.
+    - These flags only set the project config — analysis proceeds normally regardless.
+    - When `--auto-update` is set, tell the user that the commit hooks also require `{"autoUpdate": true}` in `~/.understand-anything/config.json` (their own, non-repo file) and that the hooks will ask before updating. Do not create or edit that user-level file yourself.
 
  3.6. **Language configuration:**
     - Parse `$ARGUMENTS` for `--language <lang>` flag. If found, extract the language code.

@@ -173,16 +173,38 @@ function readSourceFile(url) {
     return reject("File is not in the knowledge graph", 404);
   }
 
+  // The checks above are lexical. A symlink inside the project that points
+  // outside it (or a symlinked parent directory) would pass them, so resolve
+  // both sides and require the real file to live under the real project root.
+  let realFile;
+  let realRoot;
+  try {
+    realFile = fs.realpathSync(absoluteFile);
+    realRoot = fs.realpathSync(projectRoot);
+  } catch {
+    return reject("File not found", 404);
+  }
+  if (!realFile.startsWith(realRoot + path.sep)) {
+    return reject("Path must stay inside the project");
+  }
+  // A symlink can also point at another file *inside* the project that is
+  // not in the graph (e.g. `src/notes.ts -> ../.env`), so the resolved
+  // location must be allowlisted too, not only the requested one.
+  const realRelativePath = path.relative(realRoot, realFile).split(path.sep).join("/");
+  if (!graphFilePathSet().has(realRelativePath)) {
+    return reject("File is not in the knowledge graph", 404);
+  }
+
   let stat;
   try {
-    stat = fs.statSync(absoluteFile);
+    stat = fs.statSync(realFile);
   } catch {
     return reject("File not found", 404);
   }
   if (!stat.isFile()) return reject("Path is not a file");
   if (stat.size > MAX_SOURCE_FILE_BYTES) return reject("File is too large to preview", 413);
 
-  const buffer = fs.readFileSync(absoluteFile);
+  const buffer = fs.readFileSync(realFile);
   if (buffer.includes(0)) return reject("Binary files cannot be previewed", 415);
 
   const content = buffer.toString("utf8");

@@ -61,20 +61,73 @@ describe("getChangedFiles", () => {
   it("returns changed file list from git diff", () => {
     mockedExecFileSync.mockReturnValue("src/index.ts\nsrc/utils.ts\n");
 
-    const result = getChangedFiles("/project", "abc123");
+    const result = getChangedFiles("/project", "abc1234");
 
     expect(result).toEqual(["src/index.ts", "src/utils.ts"]);
-    expect(mockedExecFileSync).toHaveBeenCalledWith(
+    expect(mockedExecFileSync).toHaveBeenNthCalledWith(
+      1,
       "git",
-      ["diff", "abc123..HEAD", "--name-only"],
+      ["rev-parse", "--verify", "--end-of-options", "abc1234^{commit}"],
+      expect.objectContaining({ cwd: "/project" }),
+    );
+    expect(mockedExecFileSync).toHaveBeenNthCalledWith(
+      2,
+      "git",
+      ["diff", "--name-only", "--end-of-options", "abc1234..HEAD"],
       { cwd: "/project", encoding: "utf-8" },
     );
+  });
+
+  it.each([
+    "--output=/tmp/pwned",
+    "-O/tmp/pwned",
+    "abc1234 --name-only",
+    "HEAD~3",
+    "main",
+    "abc12",
+    "",
+  ])("never invokes git for a non-hex commit hash (%s)", (hash) => {
+    mockedExecFileSync.mockReturnValue("src/index.ts\n");
+
+    const result = getChangedFiles("/project", hash);
+
+    expect(result).toEqual([]);
+    expect(mockedExecFileSync).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "a".repeat(40),
+    "ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+    "b".repeat(64),
+  ])("accepts full SHA-1 and SHA-256 object ids (%s)", (hash) => {
+    mockedExecFileSync.mockReturnValue("src/index.ts\n");
+
+    const result = getChangedFiles("/project", hash);
+
+    expect(result).toEqual(["src/index.ts"]);
+    expect(mockedExecFileSync).toHaveBeenNthCalledWith(
+      2,
+      "git",
+      ["diff", "--name-only", "--end-of-options", `${hash}..HEAD`],
+      { cwd: "/project", encoding: "utf-8" },
+    );
+  });
+
+  it("returns empty array when the hash does not resolve to a commit", () => {
+    mockedExecFileSync.mockImplementationOnce(() => {
+      throw new Error("fatal: Needed a single revision");
+    });
+
+    const result = getChangedFiles("/project", "abc1234");
+
+    expect(result).toEqual([]);
+    expect(mockedExecFileSync).toHaveBeenCalledTimes(1);
   });
 
   it("returns empty array when no changes", () => {
     mockedExecFileSync.mockReturnValue("");
 
-    const result = getChangedFiles("/project", "abc123");
+    const result = getChangedFiles("/project", "abc1234");
 
     expect(result).toEqual([]);
   });
@@ -84,7 +137,7 @@ describe("getChangedFiles", () => {
       throw new Error("fatal: bad revision");
     });
 
-    const result = getChangedFiles("/project", "abc123");
+    const result = getChangedFiles("/project", "abc1234");
 
     expect(result).toEqual([]);
   });
@@ -94,7 +147,7 @@ describe("isStale", () => {
   it("returns stale when files have changed", () => {
     mockedExecFileSync.mockReturnValue("src/index.ts\n");
 
-    const result = isStale("/project", "abc123");
+    const result = isStale("/project", "abc1234");
 
     expect(result).toEqual({
       stale: true,
@@ -105,7 +158,7 @@ describe("isStale", () => {
   it("returns not stale when no files changed", () => {
     mockedExecFileSync.mockReturnValue("");
 
-    const result = isStale("/project", "abc123");
+    const result = isStale("/project", "abc1234");
 
     expect(result).toEqual({
       stale: false,

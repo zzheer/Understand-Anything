@@ -171,7 +171,7 @@ An interactive web dashboard opens with your codebase visualized as a graph — 
 # Re-run anytime — incremental by default (only re-analyzes changed files)
 /understand
 
-# Auto-update on every commit via a post-commit hook
+# Opt in to stale-graph reminders after commits (the hook asks before updating)
 /understand --auto-update
 
 # Scope to a subdirectory (for huge monorepos)
@@ -287,7 +287,7 @@ The graph is just JSON — **commit it once, and teammates skip the pipeline**. 
 .ua/diff-overlay.json
 ```
 
-**Keep it fresh:** enable `/understand --auto-update` — a post-commit hook incrementally patches the graph so each commit lands with a matching graph. Or re-run `/understand` manually before releases.
+**Keep it fresh:** enable `/understand --auto-update` — after a commit the hook reminds the agent that the graph may be stale and asks you before running the incremental update. The reminder only fires when both the repo's `$UA_DIR/config.json` and your own `~/.understand-anything/config.json` contain `{"autoUpdate": true}` (the repo file alone is never enough, because anyone who commits to the repo can set it). Or re-run `/understand` manually before releases.
 
 **Large graphs (10 MB+):** track with **git-lfs**.
 
@@ -299,11 +299,15 @@ git add .gitattributes .ua/
 
 ### View the dashboard without Claude Code
 
-Once a graph has been generated and committed, anyone on the team can open it with one command — no Claude Code, no LLM, no API key. Only Node.js (>= 18) is required:
+Once a graph has been generated and committed, anyone on the team can open it — no Claude Code, no LLM, no API key. Building the standalone viewer from a checkout of this repository needs Node.js >= 22 and pnpm >= 10 (it builds core and the dashboard); the built viewer itself runs on Node.js >= 18. Run it with `node`; nothing is downloaded at run time:
 
 ```bash
-npx https://github.com/Egonex-AI/Understand-Anything/releases/latest/download/understand-anything-viewer.tgz /path/to/analyzed/project
+pnpm install --frozen-lockfile
+pnpm --filter understand-anything-viewer build
+node understand-anything-plugin/packages/viewer/bin/viewer.mjs /path/to/analyzed/project
 ```
+
+A prebuilt tarball is also attached to each GitHub release for people who prefer `npx <release-url>`; treat that as executing unreviewed code from the network and verify the asset (e.g. compare its SHA-256 with the one published on the release page) before running it.
 
 The terminal prints a tokenized URL (`http://127.0.0.1:5173/?token=…`) and opens the full interactive dashboard in your browser. The project directory (default: current directory) must contain the committed data directory (`.ua/`, or legacy `.understand-anything/`). Everything is served read-only from local disk — no LLM calls, no data leaves your machine.
 

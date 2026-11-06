@@ -22,8 +22,9 @@ Analyzes a Figma file and produces an interactive design knowledge graph in the 
 2. Resolve `PROJECT_ROOT` to the current working directory. **Resolve the data directory `$UA_DIR`** once and reuse it for every read and write below: `UA_DIR="$PROJECT_ROOT/$([ -d "$PROJECT_ROOT/.understand-anything" ] && echo .understand-anything || echo .ua)"` — the legacy `.understand-anything/` when it already exists, otherwise the new `.ua/`. Because each phase may run in a fresh shell, carry `$UA_DIR` forward like `$PROJECT_ROOT`, re-resolving it with the same line if a later command block needs it.
 3. Resolve `PLUGIN_ROOT` and ensure core is built (same logic as `/understand` Phase 0.1.5). If `packages/core/dist/figma/index.js` is missing, run:
    ```bash
-   cd "$PLUGIN_ROOT" && (pnpm install --frozen-lockfile 2>/dev/null || pnpm install) && pnpm --filter @understand-anything/core build
+   cd "$PLUGIN_ROOT" && pnpm install --frozen-lockfile && pnpm --filter @understand-anything/core build
    ```
+   If `pnpm install --frozen-lockfile` fails, **STOP** and report the error to the user. Never retry without `--frozen-lockfile` — an unlocked install can pull in dependencies that were not reviewed with the pinned `pnpm-lock.yaml`.
 4. `mkdir -p $UA_DIR/intermediate`.
 
 ## Phase 1 — FETCH & PARSE (deterministic)

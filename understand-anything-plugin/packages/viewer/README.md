@@ -4,11 +4,15 @@ Standalone read-only viewer for [Understand-Anything](https://github.com/Egonex-
 
 ## Usage
 
-Run the tarball attached to each GitHub release directly (no npm registry involved):
+Build the viewer from a checkout of this repository and run it with `node` — nothing is downloaded at run time:
 
 ```bash
-npx https://github.com/Egonex-AI/Understand-Anything/releases/latest/download/understand-anything-viewer.tgz /path/to/analyzed/project
+pnpm install --frozen-lockfile
+pnpm --filter understand-anything-viewer build
+node understand-anything-plugin/packages/viewer/bin/viewer.mjs /path/to/analyzed/project
 ```
+
+This is what the `/understand-dashboard` skill does. A prebuilt tarball is also attached to each GitHub release for people who prefer `npx <release-url>`; treat that as executing unreviewed code from the network and verify the asset (e.g. compare its SHA-256 with the one published on the release page) before running it.
 
 The project directory (default: current directory) must contain a data directory — `.ua/` or legacy `.understand-anything/` — with a `knowledge-graph.json`. The terminal prints a tokenized URL (`http://127.0.0.1:<port>/?token=…`) and opens it in your browser.
 
