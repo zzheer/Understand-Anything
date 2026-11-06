@@ -95,6 +95,24 @@ describe("getChangedFiles", () => {
     expect(mockedExecFileSync).not.toHaveBeenCalled();
   });
 
+  it.each([
+    "a".repeat(40),
+    "ABCDEF1234567890ABCDEF1234567890ABCDEF12",
+    "b".repeat(64),
+  ])("accepts full SHA-1 and SHA-256 object ids (%s)", (hash) => {
+    mockedExecFileSync.mockReturnValue("src/index.ts\n");
+
+    const result = getChangedFiles("/project", hash);
+
+    expect(result).toEqual(["src/index.ts"]);
+    expect(mockedExecFileSync).toHaveBeenNthCalledWith(
+      2,
+      "git",
+      ["diff", "--name-only", "--end-of-options", `${hash}..HEAD`],
+      { cwd: "/project", encoding: "utf-8" },
+    );
+  });
+
   it("returns empty array when the hash does not resolve to a commit", () => {
     mockedExecFileSync.mockImplementationOnce(() => {
       throw new Error("fatal: Needed a single revision");

@@ -363,8 +363,10 @@ function parseChangedFiles(output: string): string[] {
  * `meta.json` lives inside the analyzed repository, so its contents are
  * repo-controlled data — anything that is not a plain hex hash must never
  * reach the git command line, where it could be parsed as an option.
+ * Accepts abbreviated through full SHA-1 (40) and SHA-256 (64) object ids;
+ * `git rev-parse --verify` below rejects anything that is not a commit.
  */
-const COMMIT_HASH_PATTERN = /^[0-9a-f]{7,40}$/;
+const COMMIT_HASH_PATTERN = /^[0-9a-fA-F]{7,64}$/;
 
 function isValidCommitHash(value: string): boolean {
   return COMMIT_HASH_PATTERN.test(value);

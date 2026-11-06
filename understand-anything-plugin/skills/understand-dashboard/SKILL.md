@@ -106,15 +106,16 @@ Start the Understand Anything dashboard to visualize the knowledge graph for the
    : "${PROJECT_DIR:?Run step 1 first so PROJECT_DIR is set}"
    VIEWER_DIR="$PLUGIN_ROOT/packages/viewer"
    if [ ! -d "$VIEWER_DIR/dist" ] || [ ! -f "$VIEWER_DIR/bin/dist/staleness.js" ]; then
-     cd "$PLUGIN_ROOT" && pnpm install --frozen-lockfile && pnpm --filter understand-anything-viewer build
+     cd "$PLUGIN_ROOT" && pnpm install --frozen-lockfile || exit 1
+     pnpm --filter understand-anything-viewer build
    fi
    node "$VIEWER_DIR/bin/viewer.mjs" "$PROJECT_DIR"
    ```
-   If `pnpm install --frozen-lockfile` fails, **STOP** and report the error to the user; never retry without `--frozen-lockfile`.
+   If `pnpm install --frozen-lockfile` fails, **STOP** and report the error to the user; never retry without `--frozen-lockfile`, and do **not** fall back to steps 5-6 — they run the same frozen install against the same lockfile and would fail the same way.
 
    Run the `node` command in the background. It prints the same `🔑  Dashboard URL` line as the dev server:
    - If the line appears, **skip steps 5-6** and continue at step 7.
-   - If the build fails or the process exits without printing the line, fall back to steps 5-6 (the Vite dev server from the same checkout).
+   - If the install succeeded but the viewer build fails, or the process exits without printing the line, fall back to steps 5-6 (the Vite dev server from the same checkout).
 
 5. Fallback: install dependencies and build if needed:
    ```bash
