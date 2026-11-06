@@ -171,7 +171,7 @@ An interactive web dashboard opens with your codebase visualized as a graph — 
 # Re-run anytime — incremental by default (only re-analyzes changed files)
 /understand
 
-# Auto-update on every commit via a post-commit hook
+# Opt in to stale-graph reminders after commits (the hook asks before updating)
 /understand --auto-update
 
 # Scope to a subdirectory (for huge monorepos)
@@ -287,7 +287,7 @@ The graph is just JSON — **commit it once, and teammates skip the pipeline**. 
 .ua/diff-overlay.json
 ```
 
-**Keep it fresh:** enable `/understand --auto-update` — a post-commit hook incrementally patches the graph so each commit lands with a matching graph. Or re-run `/understand` manually before releases.
+**Keep it fresh:** enable `/understand --auto-update` — after a commit the hook reminds the agent that the graph may be stale and asks you before running the incremental update. The reminder only fires when both the repo's `$UA_DIR/config.json` and your own `~/.understand-anything/config.json` contain `{"autoUpdate": true}` (the repo file alone is never enough, because anyone who commits to the repo can set it). Or re-run `/understand` manually before releases.
 
 **Large graphs (10 MB+):** track with **git-lfs**.
 

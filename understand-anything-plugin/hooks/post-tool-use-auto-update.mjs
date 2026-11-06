@@ -9,9 +9,9 @@
 // sufficient on its own to steer the agent into running the update
 // pipeline. The user-level file is the human's own opt-in.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 const COMMIT_COMMAND = /git\s+(commit|merge|cherry-pick|rebase)/;
 
@@ -32,11 +32,23 @@ function userConfigPath() {
   return join(homedir(), '.understand-anything', 'config.json');
 }
 
+function canonicalPath(path) {
+  try {
+    return realpathSync(path);
+  } catch {
+    return resolve(path);
+  }
+}
+
 function autoUpdateEnabled(dataDir) {
-  return (
-    readAutoUpdateFlag(userConfigPath()) &&
-    readAutoUpdateFlag(`${dataDir}/config.json`)
-  );
+  const userConfig = userConfigPath();
+  const projectConfig = `${dataDir}/config.json`;
+  // When the analyzed project is $HOME itself, the legacy data dir
+  // `.understand-anything/config.json` IS the user-level file. One
+  // repo-controlled write would then satisfy both opt-ins, so treat the
+  // user opt-in as absent in that case.
+  if (canonicalPath(userConfig) === canonicalPath(projectConfig)) return false;
+  return readAutoUpdateFlag(userConfig) && readAutoUpdateFlag(projectConfig);
 }
 
 async function readStdin() {

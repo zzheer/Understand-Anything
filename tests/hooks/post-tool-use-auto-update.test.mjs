@@ -202,6 +202,25 @@ describe('PostToolUse auto-update hook', () => {
     }
   });
 
+  it('ignores the user opt-in when the project data dir is the user config dir', () => {
+    // Project root == $HOME: `.understand-anything/config.json` is both the
+    // repo-controlled project config and the user-level file. A single
+    // write must not satisfy both opt-ins.
+    const home = makeHome({ userAutoUpdate: true });
+    writeFileSync(join(home, '.understand-anything', 'knowledge-graph.json'), '{}');
+    const result = spawnSync(process.execPath, [hookScript], {
+      cwd: home,
+      input: JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'git commit -m x' } }),
+      env: { ...process.env, ...homeEnv(home), CLAUDE_PLUGIN_ROOT: join(home, 'plugin root') },
+      encoding: 'utf8',
+    });
+    rmSync(home, { recursive: true, force: true });
+
+    expect(result.status).toBe(0);
+    expect(result.stderr).toBe('');
+    expect(result.stdout).toBe('');
+  });
+
   it('requires the project-level opt-in, not just the user config', () => {
     const result = runHook({ autoUpdate: false, userAutoUpdate: true });
 
