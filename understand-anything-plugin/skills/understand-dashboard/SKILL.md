@@ -105,9 +105,14 @@ Start the Understand Anything dashboard to visualize the knowledge graph for the
    : "${PLUGIN_ROOT:?Run step 3 first so PLUGIN_ROOT is set}"
    : "${PROJECT_DIR:?Run step 1 first so PROJECT_DIR is set}"
    VIEWER_DIR="$PLUGIN_ROOT/packages/viewer"
-   if [ ! -d "$VIEWER_DIR/dist" ] || [ ! -f "$VIEWER_DIR/bin/dist/staleness.js" ]; then
+   # Build outputs are gitignored, so a `git pull` or reinstall leaves an old
+   # embedded dashboard in place. Stamp each build with the checkout commit
+   # and rebuild whenever the stamp no longer matches (or is missing).
+   BUILD_STAMP="$VIEWER_DIR/dist/.built-from"
+   CHECKOUT_ID="$(git -C "$PLUGIN_ROOT" rev-parse HEAD 2>/dev/null || cat "$PLUGIN_ROOT/package.json" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")"
+   if [ ! -f "$VIEWER_DIR/bin/dist/staleness.js" ] || [ "$(cat "$BUILD_STAMP" 2>/dev/null)" != "$CHECKOUT_ID" ]; then
      cd "$PLUGIN_ROOT" && pnpm install --frozen-lockfile || exit 1
-     pnpm --filter understand-anything-viewer build
+     pnpm --filter understand-anything-viewer build && printf '%s\n' "$CHECKOUT_ID" > "$BUILD_STAMP"
    fi
    node "$VIEWER_DIR/bin/viewer.mjs" "$PROJECT_DIR"
    ```
